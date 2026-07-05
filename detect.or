@@ -1,0 +1,63 @@
+py {
+    import time
+    import json
+    import websockets
+    import asyncio
+    import math
+    from mpu6050 import mpu6050
+}
+
+let imu = mpu6050 address 0x68
+
+let dt: float = 0.01
+
+let ws_uri: str = "ws://YOUR_LAPTOP_IP:8765"
+
+let next_time: float = time.time()
+
+while true {
+    let accel:dict = accel from imu
+    let gyro:dict = gyro from imu
+
+    let ax:float = accel["x"]
+    let ay:float = accel["y"]
+    let az:float = accel["z"]
+    let gx:float = gyro["x"]
+    let gy:float = gyro["y"]
+    let gz:float = gyro["z"]
+
+    let a_mag:float = math.sqrt(ax * ax + ay * ay + az * az)
+    let g_mag:float = math.sqrt(gx * gx + gy * gy + gz * gz)
+    let t:float = time.time()
+
+    let data:dict = {
+        "t": t,
+        "a_mag": a_mag,
+        "g_mag": g_mag,
+        "ax": ax,
+        "ay": ay,
+        "az": az,
+        "gx": gx,
+        "gy": gy,
+        "gz": gz,
+    }
+
+    print data
+
+    py {
+        next_time += dt
+        sleep_time = next_time - time.time()
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+    }
+
+    py {
+        import websockets
+        import asyncio
+        import json
+        async def send():
+            async with websockets.connect(ws_uri) as ws:
+                await ws.send(json.dumps(data))
+        asyncio.run(send())
+    }
+}
